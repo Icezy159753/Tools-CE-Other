@@ -59,7 +59,7 @@ import core
 
 APP_ID = "songklod.toolsothercev1"
 ICON_FILE = "Iconapp.ico"
-APP_VERSION = "1.0.2"
+APP_VERSION = "1.0.4"
 UPDATE_CONFIG_FILE = "update_config.json"
 UPDATE_CONFIG_EXAMPLE_FILE = "update_config.example.json"
 GITHUB_REPO_DEFAULT = "Icezy159753/Tools-CE-Other"
@@ -98,7 +98,7 @@ def _load_update_config() -> dict:
         "repo": os.environ.get("TOOLS_OTHER_UPDATE_REPO", GITHUB_REPO_DEFAULT).strip(),
         "asset_name": os.environ.get("TOOLS_OTHER_UPDATE_ASSET", GITHUB_ASSET_NAME_DEFAULT).strip(),
         "updater_asset_name": os.environ.get("TOOLS_OTHER_UPDATE_UPDATER_ASSET", GITHUB_UPDATER_ASSET_NAME_DEFAULT).strip(),
-        "auto_check": False,
+        "auto_check": True,
     }
     config_path = _app_base_dir() / UPDATE_CONFIG_FILE
     if config_path.exists():
@@ -563,6 +563,41 @@ def _stylesheet() -> str:
         color: {LAVENDER};
         font-size: 13px;
         font-weight: 700;
+    }}
+
+    QLabel#version_badge {{
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 {SKY}, stop:1 {LAVENDER});
+        color: {BG};
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 11px;
+        padding: 3px 12px;
+        font-size: 11px;
+        font-weight: 800;
+    }}
+
+    QPushButton#update_action {{
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 {MINT}, stop:1 {SKY});
+        color: {BG};
+        border: 1px solid rgba(255,255,255,0.10);
+        border-radius: 11px;
+        padding: 4px 16px;
+        font-size: 12px;
+        font-weight: 800;
+    }}
+    QPushButton#update_action:hover {{
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 #A8F8C8, stop:1 #A9E6FF);
+    }}
+    QPushButton#update_action:pressed {{
+        background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+            stop:0 #74D7A0, stop:1 #69C9F4);
+    }}
+    QPushButton#update_action:disabled {{
+        background: {SURFACE2};
+        color: #6A6888;
+        border-color: #3B3956;
     }}
 
     /* ── Progress ──────────────────────────────────────────── */
@@ -1484,12 +1519,14 @@ class MainWindow(QMainWindow):
         log_lbl.setObjectName("section_title")
         log_lbl.setStyleSheet(f"color: {TEXT2}; font-size: 10px; font-weight: 700; letter-spacing: 1px;")
 
-        version_lbl = QLabel(f"v{APP_VERSION}")
-        version_lbl.setStyleSheet(f"color: {TEXT2}; font-size: 10px; font-weight: 600;")
+        version_lbl = QLabel(f"Version {APP_VERSION}")
+        version_lbl.setObjectName("version_badge")
+        version_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        version_lbl.setMinimumHeight(26)
 
         self._update_btn = QPushButton("Check Update")
-        self._update_btn.setObjectName("browse")
-        self._update_btn.setFixedSize(96, 22)
+        self._update_btn.setObjectName("update_action")
+        self._update_btn.setMinimumSize(128, 28)
         self._update_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._update_btn.clicked.connect(self._check_updates_manual)
 
