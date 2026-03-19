@@ -5,6 +5,7 @@ cd /d "%~dp0"
 
 set "APP_NAME=Tools Other CE V1"
 set "ENTRY=app.py"
+set "UPDATER_ENTRY=updater.py"
 set "ICON=Iconapp.ico"
 set "PY_EXE=.venv\Scripts\python.exe"
 
@@ -16,6 +17,11 @@ if not exist "%PY_EXE%" (
 
 if not exist "%ENTRY%" (
   echo [ERROR] Entry file not found: "%ENTRY%"
+  exit /b 1
+)
+
+if not exist "%UPDATER_ENTRY%" (
+  echo [ERROR] Updater file not found: "%UPDATER_ENTRY%"
   exit /b 1
 )
 
@@ -50,10 +56,27 @@ echo [2/3] Building EXE...
   "%ENTRY%"
 
 if errorlevel 1 (
-  echo [ERROR] Build failed.
+  echo [ERROR] Main build failed.
   exit /b 1
 )
 
-echo [3/3] Done.
+echo [3/4] Building Updater...
+"%PY_EXE%" -m PyInstaller ^
+  --noconfirm ^
+  --clean ^
+  --windowed ^
+  --onefile ^
+  --name "Tools Other CE Updater" ^
+  --icon "%ICON%" ^
+  --add-data "%ICON%;." ^
+  "%UPDATER_ENTRY%"
+
+if errorlevel 1 (
+  echo [ERROR] Updater build failed.
+  exit /b 1
+)
+
+echo [4/4] Done.
 echo EXE: "%cd%\dist\%APP_NAME%.exe"
+echo UPDATER: "%cd%\dist\Tools Other CE Updater.exe"
 exit /b 0

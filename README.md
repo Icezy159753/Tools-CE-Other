@@ -216,6 +216,7 @@ dist\Tools Other CE V1.exe
   "provider": "github",
   "repo": "Icezy159753/Tools-CE-Other",
   "asset_name": "Tools Other CE V1.exe",
+  "updater_asset_name": "Tools Other CE Updater.exe",
   "auto_check": true
 }
 ```
@@ -223,6 +224,20 @@ dist\Tools Other CE V1.exe
 ไฟล์ workflow ที่ใช้ปล่อย release:
 
 - `.github/workflows/release.yml`
+
+release จะมี asset หลัก 2 ตัว:
+
+- `Tools Other CE V1.exe`
+- `Tools Other CE Updater.exe`
+
+flow อัปเดตปัจจุบัน:
+
+1. โปรแกรมเปิดมาแล้วเช็ก GitHub Release อัตโนมัติ
+2. ถ้ามีเวอร์ชันใหม่ จะเด้งถามให้อัปเดต
+3. ถ้าผู้ใช้กดตกลง โปรแกรมจะดาวน์โหลดทั้งตัวโปรแกรมใหม่และ updater
+4. โปรแกรมจะปิดตัวเอง
+5. `Updater.exe` จะมาแทนที่ไฟล์เดิม
+6. จากนั้นเปิดเวอร์ชันใหม่ให้อัตโนมัติ
 
 ## หมายเหตุ
 

@@ -434,6 +434,7 @@ dist\Tools Other CE V1.exe
   "provider": "github",
   "repo": "Icezy159753/Tools-CE-Other",
   "asset_name": "Tools Other CE V1.exe",
+  "updater_asset_name": "Tools Other CE Updater.exe",
   "auto_check": true
 }
 ```
@@ -442,7 +443,7 @@ dist\Tools Other CE V1.exe
 
 - ถ้าไม่ได้ตั้ง `repo` ปุ่ม `Check Update` จะบอกว่ายังไม่ตั้งค่า
 - สามารถเปิด auto check ได้ด้วย `auto_check: true`
-- โปรแกรมจะดาวน์โหลดไฟล์ใหม่มาเก็บในตำแหน่งที่ผู้ใช้เลือก แต่จะไม่เขียนทับ exe ที่กำลังรันอยู่เอง
+- โปรแกรมจะใช้ `Updater.exe` แยกอีกตัวเพื่อแทนไฟล์เดิมให้อัตโนมัติ
 
 ### 10.2 GitHub Actions สำหรับ build release
 
@@ -456,7 +457,8 @@ workflow นี้จะ:
 2. ติดตั้ง dependencies
 3. รัน test
 4. build `Tools Other CE V1.exe`
-5. อัปโหลดไฟล์เข้า GitHub Release
+5. build `Tools Other CE Updater.exe`
+6. อัปโหลดไฟล์เข้า GitHub Release
 
 ดังนั้น workflow แนะนำคือ:
 
@@ -466,6 +468,7 @@ workflow นี้จะ:
 4. push tag ขึ้น GitHub
 5. รอ Action build release
 6. ผู้ใช้เปิดโปรแกรมแล้วกด `Check Update` หรือให้โปรแกรมเช็กเอง
+7. ถ้ามีเวอร์ชันใหม่ โปรแกรมจะเด้งถามและอัปเดตแทนไฟล์เดิมได้เลย
 
 ## 11. การทดสอบ (Tests)
 

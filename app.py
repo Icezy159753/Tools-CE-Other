@@ -59,11 +59,12 @@ import core
 
 APP_ID = "songklod.toolsothercev1"
 ICON_FILE = "Iconapp.ico"
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.2"
 UPDATE_CONFIG_FILE = "update_config.json"
 UPDATE_CONFIG_EXAMPLE_FILE = "update_config.example.json"
 GITHUB_REPO_DEFAULT = "Icezy159753/Tools-CE-Other"
 GITHUB_ASSET_NAME_DEFAULT = "Tools Other CE V1.exe"
+GITHUB_UPDATER_ASSET_NAME_DEFAULT = "Tools Other CE Updater.exe"
 
 
 def _resource_path(name: str) -> Path:
@@ -96,6 +97,7 @@ def _load_update_config() -> dict:
         "provider": os.environ.get("TOOLS_OTHER_UPDATE_PROVIDER", "github").strip() or "github",
         "repo": os.environ.get("TOOLS_OTHER_UPDATE_REPO", GITHUB_REPO_DEFAULT).strip(),
         "asset_name": os.environ.get("TOOLS_OTHER_UPDATE_ASSET", GITHUB_ASSET_NAME_DEFAULT).strip(),
+        "updater_asset_name": os.environ.get("TOOLS_OTHER_UPDATE_UPDATER_ASSET", GITHUB_UPDATER_ASSET_NAME_DEFAULT).strip(),
         "auto_check": False,
     }
     config_path = _app_base_dir() / UPDATE_CONFIG_FILE
@@ -117,6 +119,7 @@ def _ensure_update_config_example() -> None:
         "provider": "github",
         "repo": GITHUB_REPO_DEFAULT,
         "asset_name": GITHUB_ASSET_NAME_DEFAULT,
+        "updater_asset_name": GITHUB_UPDATER_ASSET_NAME_DEFAULT,
         "auto_check": True,
     }
     try:
@@ -152,6 +155,12 @@ def _fetch_github_release_metadata(repo: str, asset_name: str) -> dict:
         raise ValueError("GitHub release missing tag_name")
 
     assets = data.get("assets") or []
+    assets_map: dict[str, str] = {}
+    for asset in assets:
+        name = str(asset.get("name", "")).strip()
+        url = str(asset.get("browser_download_url", "")).strip()
+        if name and url:
+            assets_map[name] = url
     download_url = ""
     if asset_name:
         for asset in assets:
@@ -173,39 +182,46 @@ def _fetch_github_release_metadata(repo: str, asset_name: str) -> dict:
         "published_at": str(data.get("published_at", "")).strip(),
         "release_url": str(data.get("html_url", "")).strip(),
         "asset_name": asset_name,
+        "assets_map": assets_map,
     }
 
 
 def _check_for_updates() -> dict:
-    config = _load_update_config()
-    provider = str(config.get("provider", "github")).strip().lower()
-    if provider != "github":
+    try:
+        config = _load_update_config()
+        provider = str(config.get("provider", "github")).strip().lower()
+        if provider != "github":
+            return {
+                "configured": False,
+                "current_version": APP_VERSION,
+            }
+        repo = str(config.get("repo", "")).strip()
+        if not repo:
+            return {
+                "configured": False,
+                "current_version": APP_VERSION,
+            }
+        metadata = _fetch_github_release_metadata(
+            repo,
+            str(config.get("asset_name", "")).strip(),
+        )
+        updater_asset_name = str(config.get("updater_asset_name", GITHUB_UPDATER_ASSET_NAME_DEFAULT)).strip()
         return {
-            "configured": False,
+            "configured": True,
             "current_version": APP_VERSION,
+            "latest_version": metadata["version"],
+            "download_url": metadata["download_url"],
+            "notes": metadata["notes"],
+            "published_at": metadata["published_at"],
+            "release_url": metadata.get("release_url", ""),
+            "asset_name": metadata.get("asset_name", ""),
+            "updater_asset_name": updater_asset_name,
+            "updater_download_url": metadata.get("assets_map", {}).get(updater_asset_name, ""),
+            "repo": repo,
+            "update_available": _is_version_newer(metadata["version"], APP_VERSION),
         }
-    repo = str(config.get("repo", "")).strip()
-    if not repo:
-        return {
-            "configured": False,
-            "current_version": APP_VERSION,
-        }
-    metadata = _fetch_github_release_metadata(
-        repo,
-        str(config.get("asset_name", "")).strip(),
-    )
-    return {
-        "configured": True,
-        "current_version": APP_VERSION,
-        "latest_version": metadata["version"],
-        "download_url": metadata["download_url"],
-        "notes": metadata["notes"],
-        "published_at": metadata["published_at"],
-        "release_url": metadata.get("release_url", ""),
-        "asset_name": metadata.get("asset_name", ""),
-        "repo": repo,
-        "update_available": _is_version_newer(metadata["version"], APP_VERSION),
-    }
+    except urlerror.URLError as ex:
+        raise ValueError(f"เช็กอัปเดตไม่สำเร็จ: เชื่อมต่อ GitHub ไม่ได้ ({ex.reason})") from ex
 
 
 def _download_update(download_url: str, output_path: str) -> str:
@@ -216,6 +232,28 @@ def _download_update(download_url: str, output_path: str) -> str:
     with urlrequest.urlopen(req, timeout=120) as resp, open(output_path, "wb") as fh:
         fh.write(resp.read())
     return output_path
+
+
+def _prepare_update_package(
+    app_download_url: str,
+    updater_download_url: str,
+    latest_version: str,
+) -> dict:
+    try:
+        base_dir = _app_base_dir()
+        updates_dir = base_dir / "_updates"
+        updates_dir.mkdir(parents=True, exist_ok=True)
+        app_temp = updates_dir / f"Tools Other CE V1-{latest_version}.exe"
+        updater_temp = updates_dir / "Tools Other CE Updater.exe"
+        _download_update(app_download_url, str(app_temp))
+        if updater_download_url:
+            _download_update(updater_download_url, str(updater_temp))
+        return {
+            "app_path": str(app_temp),
+            "updater_path": str(updater_temp),
+        }
+    except urlerror.URLError as ex:
+        raise ValueError(f"ดาวน์โหลดอัปเดตไม่สำเร็จ: เชื่อมต่อ GitHub ไม่ได้ ({ex.reason})") from ex
 
 
 def _set_windows_taskbar_icon(hwnd: int, icon_path: Path) -> None:
@@ -1392,6 +1430,7 @@ class MainWindow(QMainWindow):
         self._pool = QThreadPool.globalInstance()
         self._update_check_running = False
         self._download_running = False
+        self._pending_update_result: dict | None = None
         icon_path = _resource_path(ICON_FILE)
         if icon_path.exists():
             self.setWindowIcon(QIcon(str(icon_path)))
@@ -1552,6 +1591,7 @@ class MainWindow(QMainWindow):
         latest = result.get("latest_version", "")
         notes = result.get("notes", "")
         published_at = result.get("published_at", "")
+        self._pending_update_result = result
         detail_lines = [
             f"Current version: v{APP_VERSION}",
             f"Latest version: v{latest}",
@@ -1564,7 +1604,7 @@ class MainWindow(QMainWindow):
             detail_lines.append("Release notes:")
             detail_lines.append(notes)
         detail_lines.append("")
-        detail_lines.append("ต้องการดาวน์โหลดไฟล์อัปเดตไหม")
+        detail_lines.append("ต้องการอัปเดตตอนนี้ไหม")
         reply = QMessageBox.question(
             self,
             "Update Available",
@@ -1584,19 +1624,16 @@ class MainWindow(QMainWindow):
                 "พบเวอร์ชันใหม่ แต่ release ยังไม่มีไฟล์ .exe ให้ดาวน์โหลด",
             )
             return
-
-        default_name = Path(download_url).name or f"Tools Other CE V1 v{latest}.exe"
-        default_path = str(_app_base_dir() / default_name)
-        save_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "บันทึกไฟล์อัปเดต",
-            default_path,
-            "Executable (*.exe);;All Files (*.*)",
-        )
-        if not save_path:
-            self._status.showMessage("ยกเลิกการดาวน์โหลดอัปเดต")
+        updater_download_url = str(result.get("updater_download_url", "")).strip()
+        if not updater_download_url:
+            QMessageBox.warning(
+                self,
+                "Update Available",
+                "พบเวอร์ชันใหม่ แต่ release ยังไม่มีไฟล์ Updater.exe\n\n"
+                "ให้ปล่อย release ใหม่ที่มีทั้ง Tools Other CE V1.exe และ Tools Other CE Updater.exe ก่อน",
+            )
             return
-        self._start_update_download(download_url, save_path)
+        self._start_update_download(download_url, updater_download_url, latest)
 
     def _on_update_check_error(self, msg: str, silent: bool) -> None:
         self._update_check_running = False
@@ -1611,28 +1648,60 @@ class MainWindow(QMainWindow):
             f"เช็กอัปเดตไม่สำเร็จ\n\n{msg}",
         )
 
-    def _start_update_download(self, download_url: str, save_path: str) -> None:
+    def _start_update_download(self, download_url: str, updater_download_url: str, latest_version: str) -> None:
         if self._download_running:
             return
         self._download_running = True
         self._update_btn.setEnabled(False)
         self._status.showMessage("กำลังดาวน์โหลดอัปเดต...")
-        worker = _Worker(_download_update, download_url, save_path)
+        worker = _Worker(_prepare_update_package, download_url, updater_download_url, latest_version)
         worker.signals.finished.connect(self._on_update_download_done)
         worker.signals.error.connect(self._on_update_download_error)
         self._pool.start(worker)
 
-    def _on_update_download_done(self, output_path: str) -> None:
+    def _launch_updater_and_exit(self, updater_path: str, new_app_path: str) -> None:
+        import subprocess
+
+        current_exe = str(Path(sys.executable if getattr(sys, "frozen", False) else Path(__file__).resolve()))
+        launch_target = current_exe if getattr(sys, "frozen", False) else sys.executable
+        cmd = [
+            updater_path,
+            "--target", current_exe,
+            "--source", new_app_path,
+            "--launch", launch_target,
+            "--pid", str(os.getpid()),
+        ]
+        if not getattr(sys, "frozen", False):
+            cmd.extend(["--launch-args", str(Path(__file__).resolve())])
+        subprocess.Popen(cmd, cwd=str(_app_base_dir()))
+        QApplication.instance().quit()
+
+    def _on_update_download_done(self, payload: dict) -> None:
         self._download_running = False
         self._update_btn.setEnabled(True)
-        self._status.showMessage("ดาวน์โหลดอัปเดตเรียบร้อย")
-        QMessageBox.information(
+        app_path = str(payload.get("app_path", "")).strip()
+        updater_path = str(payload.get("updater_path", "")).strip()
+        if not app_path or not updater_path or not Path(updater_path).exists():
+            QMessageBox.warning(
+                self,
+                "Download Update",
+                "ดาวน์โหลดอัปเดตแล้ว แต่ไม่พบไฟล์ Updater ที่ใช้แทนเวอร์ชันเดิม",
+            )
+            return
+        reply = QMessageBox.question(
             self,
-            "Download Complete",
+            "Ready To Install Update",
             "ดาวน์โหลดอัปเดตเรียบร้อยแล้ว\n\n"
-            f"File: {output_path}\n\n"
-            "ให้ปิดโปรแกรมตัวเดิม แล้วเปิดไฟล์ใหม่ที่ดาวน์โหลดมา",
+            "โปรแกรมจะปิดตัวเดิม แทนที่ไฟล์ด้วยเวอร์ชันใหม่ และเปิดเวอร์ชันใหม่ขึ้นมาให้อัตโนมัติ\n\n"
+            "ต้องการดำเนินการต่อไหม",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.Yes,
         )
+        if reply != QMessageBox.StandardButton.Yes:
+            self._status.showMessage("ยกเลิกการติดตั้งอัปเดต")
+            return
+        self._status.showMessage("กำลังติดตั้งอัปเดต...")
+        self._launch_updater_and_exit(updater_path, app_path)
 
     def _on_update_download_error(self, msg: str) -> None:
         self._download_running = False

@@ -34,7 +34,7 @@ jobs:
         run: |
           python -m unittest discover -s tests -v
 
-      - name: Build EXE
+      - name: Build main EXE
         shell: pwsh
         run: |
           python -m PyInstaller `
@@ -50,15 +50,32 @@ jobs:
             --hidden-import pyreadstat._readstat_writer `
             "app.py"
 
+      - name: Build updater EXE
+        shell: pwsh
+        run: |
+          python -m PyInstaller `
+            --noconfirm `
+            --clean `
+            --windowed `
+            --onefile `
+            --name "Tools Other CE Updater" `
+            --icon "Iconapp.ico" `
+            --add-data "Iconapp.ico;." `
+            "updater.py"
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: tools-other-ce-exe
-          path: dist/Tools Other CE V1.exe
+          path: |
+            dist/Tools Other CE V1.exe
+            dist/Tools Other CE Updater.exe
 
       - name: Create or update GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/Tools Other CE V1.exe
+          files: |
+            dist/Tools Other CE V1.exe
+            dist/Tools Other CE Updater.exe
           generate_release_notes: true
