@@ -1,0 +1,64 @@
+name: Build And Release EXE
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install pyinstaller
+
+      - name: Run tests
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -v
+
+      - name: Build EXE
+        shell: pwsh
+        run: |
+          python -m PyInstaller `
+            --noconfirm `
+            --clean `
+            --windowed `
+            --onefile `
+            --name "Tools Other CE V1" `
+            --icon "Iconapp.ico" `
+            --add-data "Iconapp.ico;." `
+            --collect-all pyreadstat `
+            --hidden-import pyreadstat._readstat_parser `
+            --hidden-import pyreadstat._readstat_writer `
+            "app.py"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tools-other-ce-exe
+          path: dist/Tools Other CE V1.exe
+
+      - name: Create or update GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Tools Other CE V1.exe
+          generate_release_notes: true
