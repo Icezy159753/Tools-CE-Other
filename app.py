@@ -59,7 +59,7 @@ import core
 
 APP_ID = "songklod.toolsothercev1"
 ICON_FILE = "Iconapp.ico"
-APP_VERSION = "1.0.7"
+APP_VERSION = "1.0.8"
 UPDATE_CONFIG_FILE = "update_config.json"
 UPDATE_CONFIG_EXAMPLE_FILE = "update_config.example.json"
 GITHUB_REPO_DEFAULT = "Icezy159753/Tools-CE-Other"
