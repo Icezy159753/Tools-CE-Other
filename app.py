@@ -59,7 +59,7 @@ import core
 
 APP_ID = "songklod.toolsothercev1"
 ICON_FILE = "Iconapp.ico"
-APP_VERSION = "1.0.6"
+APP_VERSION = "1.0.7"
 UPDATE_CONFIG_FILE = "update_config.json"
 UPDATE_CONFIG_EXAMPLE_FILE = "update_config.example.json"
 GITHUB_REPO_DEFAULT = "Icezy159753/Tools-CE-Other"
@@ -1477,8 +1477,7 @@ class CodeFrameTab(QWidget):
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        _ensure_update_config_example()
-        self.setWindowTitle("Tools Other CE V1")
+        self.setWindowTitle(f"Tools Other CE v{APP_VERSION}")
         self.setMinimumSize(QSize(900, 750))
         self._pool = QThreadPool.globalInstance()
         self._update_check_running = False
@@ -1786,7 +1785,7 @@ def main() -> None:
     except Exception:
         pass
     app = QApplication(sys.argv)
-    app.setApplicationName("Tools Other CE V1")
+    app.setApplicationName(f"Tools Other CE v{APP_VERSION}")
     icon_path = _resource_path(ICON_FILE)
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
