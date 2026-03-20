@@ -59,7 +59,7 @@ import core
 
 APP_ID = "songklod.toolsothercev1"
 ICON_FILE = "Iconapp.ico"
-APP_VERSION = "1.0.4"
+APP_VERSION = "1.0.6"
 UPDATE_CONFIG_FILE = "update_config.json"
 UPDATE_CONFIG_EXAMPLE_FILE = "update_config.example.json"
 GITHUB_REPO_DEFAULT = "Icezy159753/Tools-CE-Other"
@@ -161,19 +161,7 @@ def _fetch_github_release_metadata(repo: str, asset_name: str) -> dict:
         url = str(asset.get("browser_download_url", "")).strip()
         if name and url:
             assets_map[name] = url
-    download_url = ""
-    if asset_name:
-        for asset in assets:
-            if str(asset.get("name", "")).strip() == asset_name:
-                download_url = str(asset.get("browser_download_url", "")).strip()
-                break
-    if not download_url and assets:
-        for asset in assets:
-            name = str(asset.get("name", "")).strip().lower()
-            if name.endswith(".exe"):
-                download_url = str(asset.get("browser_download_url", "")).strip()
-                asset_name = str(asset.get("name", "")).strip()
-                break
+    download_url = _find_asset_download_url(assets_map, asset_name, prefer_keyword="")
 
     return {
         "version": version,
@@ -183,7 +171,30 @@ def _fetch_github_release_metadata(repo: str, asset_name: str) -> dict:
         "release_url": str(data.get("html_url", "")).strip(),
         "asset_name": asset_name,
         "assets_map": assets_map,
+        "available_assets": list(assets_map.keys()),
     }
+
+
+def _find_asset_download_url(assets_map: dict[str, str], preferred_name: str, prefer_keyword: str) -> str:
+    preferred_name = str(preferred_name).strip()
+    if preferred_name and preferred_name in assets_map:
+        return assets_map[preferred_name]
+
+    lower_map = {name.lower(): url for name, url in assets_map.items()}
+    if preferred_name and preferred_name.lower() in lower_map:
+        return lower_map[preferred_name.lower()]
+
+    if prefer_keyword:
+        keyword = prefer_keyword.lower()
+        for name, url in assets_map.items():
+            lname = name.lower()
+            if keyword in lname and lname.endswith(".exe"):
+                return url
+
+    for name, url in assets_map.items():
+        if name.lower().endswith(".exe"):
+            return url
+    return ""
 
 
 def _check_for_updates() -> dict:
@@ -206,6 +217,12 @@ def _check_for_updates() -> dict:
             str(config.get("asset_name", "")).strip(),
         )
         updater_asset_name = str(config.get("updater_asset_name", GITHUB_UPDATER_ASSET_NAME_DEFAULT)).strip()
+        assets_map = metadata.get("assets_map", {})
+        updater_download_url = _find_asset_download_url(
+            assets_map,
+            updater_asset_name,
+            prefer_keyword="updater",
+        )
         return {
             "configured": True,
             "current_version": APP_VERSION,
@@ -216,7 +233,8 @@ def _check_for_updates() -> dict:
             "release_url": metadata.get("release_url", ""),
             "asset_name": metadata.get("asset_name", ""),
             "updater_asset_name": updater_asset_name,
-            "updater_download_url": metadata.get("assets_map", {}).get(updater_asset_name, ""),
+            "updater_download_url": updater_download_url,
+            "available_assets": metadata.get("available_assets", []),
             "repo": repo,
             "update_available": _is_version_newer(metadata["version"], APP_VERSION),
         }
@@ -1663,11 +1681,18 @@ class MainWindow(QMainWindow):
             return
         updater_download_url = str(result.get("updater_download_url", "")).strip()
         if not updater_download_url:
+            available_assets = result.get("available_assets") or []
+            asset_text = ""
+            if available_assets:
+                asset_text = "\n\nAssets ใน release ล่าสุด:\n" + "\n".join(
+                    f"- {name}" for name in available_assets
+                )
             QMessageBox.warning(
                 self,
                 "Update Available",
                 "พบเวอร์ชันใหม่ แต่ release ยังไม่มีไฟล์ Updater.exe\n\n"
-                "ให้ปล่อย release ใหม่ที่มีทั้ง Tools Other CE V1.exe และ Tools Other CE Updater.exe ก่อน",
+                "ให้ปล่อย release ใหม่ที่มีทั้ง Tools Other CE V1.exe และ Tools Other CE Updater.exe ก่อน"
+                + asset_text,
             )
             return
         self._start_update_download(download_url, updater_download_url, latest)
